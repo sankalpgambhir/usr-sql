@@ -20,8 +20,8 @@ object USR {
   case class Squash(val inner: Expression) extends Expression
 
   extension (self: Expression) {
-    infix def + (other: Expression) = Add(Seq(self, other))
-    infix def * (other: Expression) = Mul(Seq(self, other))
+    infix def +(other: Expression) = Add(Seq(self, other))
+    infix def *(other: Expression) = Mul(Seq(self, other))
   }
 
   // atomic expressions
@@ -46,20 +46,18 @@ object USR {
 
   case class Variable(override val name: String) extends Value with Label(name)
   case class Constant[T <: DataType](val value: T) extends Value
-  case class Function(val label: FunctionLabel, val args: Seq[Value]) extends Value
-  case class Aggregate(val label: AggregateLabel, val arg: Expression) extends Value
+  case class Function(val label: FunctionLabel, val args: Seq[Value])
+      extends Value
+  case class Aggregate(val label: AggregateLabel, val arg: Expression)
+      extends Value
 
   /** Tree schema navigation, e.g., t1.left.right
     */
   sealed trait Projection(val inner: Value) extends Value
 
-  case class Left(override val inner: Value)
-      extends Projection(inner)
-  case class Right(override val inner: Value)
-      extends Projection(inner)
+  case class Left(override val inner: Value) extends Projection(inner)
+  case class Right(override val inner: Value) extends Projection(inner)
 
-
-  
   // aliasing
   sealed trait Label(val name: String) {
     override def toString(): String = name

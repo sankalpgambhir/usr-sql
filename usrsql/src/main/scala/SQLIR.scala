@@ -86,16 +86,15 @@ object SQLIR {
     */
   case object Star extends Projection
 
-  /**
-    * Projection of form t.* (or just t)
+  /** Projection of form t.* (or just t)
     */
   case class TableProjection(val t: Table) extends Projection
-  /**
-    * Projection of form p.Left
+
+  /** Projection of form p.Left
     */
   case class LeftProjection(val of: Projection) extends Projection
-  /**
-    * Projection of form p.Right
+
+  /** Projection of form p.Right
     */
   case class RightProjection(val of: Projection) extends Projection
 
@@ -126,41 +125,55 @@ object SQLIR {
   case class FunctionLabel(override val name: String) extends Label(name)
   case class AggregateLabel(override val name: String) extends Label(name)
 
-  def prettyQuery(q: Query): String = 
+  def prettyQuery(q: Query): String =
     q match
-      case SELECT(selection, from) => s"SELECT ${prettyProjection(selection)} ${prettyQuery(from)}"
-      case FROM(clauses) => "FROM " + clauses.map((q, l) => s"(${prettyQuery(q)}) $l").reduce(_ + ", " + _)
-      case WHERE(query, condition) => s"${prettyQuery(query)} WHERE ${prettyPredicate(condition)}"
-      case EXCEPT(left, right) => s"${prettyQuery(left)} EXCEPT ${prettyQuery(right)}"
-      case UNIONALL(left, right) => s"${prettyQuery(left)} UNION ALL ${prettyQuery(right)}"
+      case SELECT(selection, from) =>
+        s"SELECT ${prettyProjection(selection)} ${prettyQuery(from)}"
+      case FROM(clauses) =>
+        "FROM " + clauses
+          .map((q, l) => s"(${prettyQuery(q)}) $l")
+          .reduce(_ + ", " + _)
+      case WHERE(query, condition) =>
+        s"${prettyQuery(query)} WHERE ${prettyPredicate(condition)}"
+      case EXCEPT(left, right) =>
+        s"${prettyQuery(left)} EXCEPT ${prettyQuery(right)}"
+      case UNIONALL(left, right) =>
+        s"${prettyQuery(left)} UNION ALL ${prettyQuery(right)}"
       case DISTINCT(query) => s"DISTINCT ${prettyQuery(query)}"
       case TableRef(table) => table.toString()
 
-  def prettyProjection(p: Projection): String = 
+  def prettyProjection(p: Projection): String =
     p match
-      case Star => "*"
-      case TableProjection(t) => t.toString()
-      case LeftProjection(of) => s"${prettyProjection(of)}.left"
+      case Star                => "*"
+      case TableProjection(t)  => t.toString()
+      case LeftProjection(of)  => s"${prettyProjection(of)}.left"
       case RightProjection(of) => s"${prettyProjection(of)}.right"
-      case CompoundProjection(ps) => ps.map(prettyProjection(_)).reduce(_ + ", " + _)
+      case CompoundProjection(ps) =>
+        ps.map(prettyProjection(_)).reduce(_ + ", " + _)
       case ExpressionProjection(exp) => prettyExpression(exp)
-    
-  def prettyPredicate(p: Predicate): String = 
+
+  def prettyPredicate(p: Predicate): String =
     p match
-      case TRUE => "TRUE"
-      case FALSE => "FALSE"
-      case NOT(inner) => s"NOT (${prettyPredicate(inner)})"
+      case TRUE          => "TRUE"
+      case FALSE         => "FALSE"
+      case NOT(inner)    => s"NOT (${prettyPredicate(inner)})"
       case EXISTS(inner) => s"EXISTS (${prettyQuery(inner)})"
-      case AND(left, right) => s"(${prettyPredicate(left)}) AND (${prettyPredicate(right)})"
-      case OR(left, right) => s"(${prettyPredicate(left)}) OR (${prettyPredicate(right)})"
-      case EQ(left, right) => s"(${prettyExpression(left)}) = (${prettyExpression(right)})"
-      case LT(left, right) => s"(${prettyExpression(left)}) < (${prettyExpression(right)})"
-      case LE(left, right) => s"(${prettyExpression(left)}) <= (${prettyExpression(right)})"
-    
-  def prettyExpression(e: Expression): String = 
+      case AND(left, right) =>
+        s"(${prettyPredicate(left)}) AND (${prettyPredicate(right)})"
+      case OR(left, right) =>
+        s"(${prettyPredicate(left)}) OR (${prettyPredicate(right)})"
+      case EQ(left, right) =>
+        s"(${prettyExpression(left)}) = (${prettyExpression(right)})"
+      case LT(left, right) =>
+        s"(${prettyExpression(left)}) < (${prettyExpression(right)})"
+      case LE(left, right) =>
+        s"(${prettyExpression(left)}) <= (${prettyExpression(right)})"
+
+  def prettyExpression(e: Expression): String =
     e match
       case ProjectionExpression(p) => prettyProjection(p)
-      case Function(label, args) => s"$label(${args.map(prettyExpression(_)).reduce(_ + ", " + _)})"
+      case Function(label, args) =>
+        s"$label(${args.map(prettyExpression(_)).reduce(_ + ", " + _)})"
       case Aggregate(label, arg) => s"$label(${prettyQuery(arg)})"
-      case Constant(value) => value.toString()
+      case Constant(value)       => value.toString()
 }

@@ -71,8 +71,7 @@ object SQL {
     */
   sealed trait Expression
 
-  case class ColumnRef(val t: Table, val c: Column)
-      extends Expression
+  case class ColumnRef(val t: Table, val c: Column) extends Expression
   case class Function(val label: FunctionLabel, val args: Seq[Expression])
       extends Expression
   case class Aggregate(val label: AggregateLabel, val arg: Query)
@@ -128,40 +127,55 @@ object SQL {
   case class FunctionLabel(override val name: String) extends Label(name)
   case class AggregateLabel(override val name: String) extends Label(name)
 
-  def prettyQuery(q: Query): String = 
+  def prettyQuery(q: Query): String =
     q match
-      case SELECT(selection, from) => s"SELECT ${prettyProjection(selection)} ${prettyQuery(from)}"
-      case FROM(clauses) => "FROM " + clauses.map((q, l) => s"(${prettyQuery(q)}) $l").reduce(_ + ", " + _)
-      case WHERE(query, condition) => s"${prettyQuery(query)} WHERE ${prettyPredicate(condition)}"
-      case EXCEPT(left, right) => s"${prettyQuery(left)} EXCEPT ${prettyQuery(right)}"
-      case UNIONALL(left, right) => s"${prettyQuery(left)} UNION ALL ${prettyQuery(right)}"
+      case SELECT(selection, from) =>
+        s"SELECT ${prettyProjection(selection)} ${prettyQuery(from)}"
+      case FROM(clauses) =>
+        "FROM " + clauses
+          .map((q, l) => s"(${prettyQuery(q)}) $l")
+          .reduce(_ + ", " + _)
+      case WHERE(query, condition) =>
+        s"${prettyQuery(query)} WHERE ${prettyPredicate(condition)}"
+      case EXCEPT(left, right) =>
+        s"${prettyQuery(left)} EXCEPT ${prettyQuery(right)}"
+      case UNIONALL(left, right) =>
+        s"${prettyQuery(left)} UNION ALL ${prettyQuery(right)}"
       case DISTINCT(query) => s"DISTINCT ${prettyQuery(query)}"
       case TableRef(table) => table.toString()
 
-  def prettyProjection(p: Projection): String = 
+  def prettyProjection(p: Projection): String =
     p match
-      case Star => "*"
-      case ColumnProjection(t, Star) => s"$t.*"
+      case Star                           => "*"
+      case ColumnProjection(t, Star)      => s"$t.*"
       case ColumnProjection(t, c: Column) => s"$t.$c"
-      case LabelledProjection(expression, label) => s"${prettyExpression(expression)} AS $label"
-      case CompoundProjection(ps) => ps.map(prettyProjection(_)).reduce(_ + ", " + _)
-    
-  def prettyPredicate(p: Predicate): String = 
+      case LabelledProjection(expression, label) =>
+        s"${prettyExpression(expression)} AS $label"
+      case CompoundProjection(ps) =>
+        ps.map(prettyProjection(_)).reduce(_ + ", " + _)
+
+  def prettyPredicate(p: Predicate): String =
     p match
-      case TRUE => "TRUE"
-      case FALSE => "FALSE"
-      case NOT(inner) => s"NOT (${prettyPredicate(inner)})"
+      case TRUE          => "TRUE"
+      case FALSE         => "FALSE"
+      case NOT(inner)    => s"NOT (${prettyPredicate(inner)})"
       case EXISTS(inner) => s"EXISTS (${prettyQuery(inner)})"
-      case AND(left, right) => s"(${prettyPredicate(left)}) AND (${prettyPredicate(right)})"
-      case OR(left, right) => s"(${prettyPredicate(left)}) OR (${prettyPredicate(right)})"
-      case EQ(left, right) => s"(${prettyExpression(left)}) = (${prettyExpression(right)})"
-      case LT(left, right) => s"(${prettyExpression(left)}) < (${prettyExpression(right)})"
-      case LE(left, right) => s"(${prettyExpression(left)}) <= (${prettyExpression(right)})"
-    
-  def prettyExpression(e: Expression): String = 
+      case AND(left, right) =>
+        s"(${prettyPredicate(left)}) AND (${prettyPredicate(right)})"
+      case OR(left, right) =>
+        s"(${prettyPredicate(left)}) OR (${prettyPredicate(right)})"
+      case EQ(left, right) =>
+        s"(${prettyExpression(left)}) = (${prettyExpression(right)})"
+      case LT(left, right) =>
+        s"(${prettyExpression(left)}) < (${prettyExpression(right)})"
+      case LE(left, right) =>
+        s"(${prettyExpression(left)}) <= (${prettyExpression(right)})"
+
+  def prettyExpression(e: Expression): String =
     e match
       case ColumnRef(t, c) => s"$t.$c"
-      case Function(label, args) => s"$label(${args.map(prettyExpression(_)).reduce(_ + ", " + _)})"
+      case Function(label, args) =>
+        s"$label(${args.map(prettyExpression(_)).reduce(_ + ", " + _)})"
       case Aggregate(label, arg) => s"$label(${prettyQuery(arg)})"
-      case Constant(value) => value.toString()
+      case Constant(value)       => value.toString()
 }
