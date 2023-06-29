@@ -1,7 +1,7 @@
 package usrsql
 
 import usrsql.UnionFind
-import usrsql.SQLLanguage.* 
+import usrsql.SQLLanguage.*
 import usrsql.USRLanguage.*
 
 object ExpTest extends App {
@@ -10,16 +10,22 @@ object ExpTest extends App {
   val t2 = UVar("t2")
   val t3 = UVar("t3")
 
-  val exp = Sum(t1, Sum(t2, (t2 === t) * 
-              Sum(t3, 
-                  (Ref(t3, "k") === Ref(t1, "k")) * 
-                  (Ref(t3, "a") === Ref(t1, "a")) *
-                  Relation("R", t3)
-              ) *
-              Relation("R", t2) *
-              (Ref(t1, "k") === Ref(t2, "k")) *
-              (UInt(12) === Ref(t1, "a"))
-          ))
+  val exp = Sum(
+    t1,
+    Sum(
+      t2,
+      (t2 === t) *
+        Sum(
+          t3,
+          (Ref(t3, "k") === Ref(t1, "k")) *
+            (Ref(t3, "a") === Ref(t1, "a")) *
+            Relation("R", t3)
+        ) *
+        Relation("R", t2) *
+        (Ref(t1, "k") === Ref(t2, "k")) *
+        (UInt(12) === Ref(t1, "a"))
+    )
+  )
 
   exp.toSumPrefix
   eliminateUnusedVars(exp.toSumPrefix, Seq(t))
@@ -28,4 +34,3 @@ object ExpTest extends App {
   val e3 = eliminateUnusedVars(e2.toSumPrefix, Seq(t)).get
   collectUsedVars(e3)
 }
-
