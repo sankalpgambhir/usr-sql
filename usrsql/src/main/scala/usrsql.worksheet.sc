@@ -62,3 +62,19 @@ eliminateUnusedVars(e2.toSumPrefix, Seq(UVar("t"))).get
 
 // EXISTS (SELECT * ...)
 // NOT EXISTS (SELECT * ...)
+
+// Sum t1 sum t2 ...  ++ Sum t3 ...
+// ???
+// (select ... from R as t1, R as t2) UNION (Select ... from R as t3)
+
+// \t -> sum t1 (t1.a = 12) x R[t1]
+
+// there must be exactly one free variable
+
+// every summation variable must be bounded with a domain
+// or eliminated
+
+// something about maintaining the shape during a union?
+
+// have manual examples for SQL queries in USR and we can go back
+
