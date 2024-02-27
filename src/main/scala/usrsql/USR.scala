@@ -6,6 +6,9 @@ import Schema.DataType
 object USR {
   sealed trait Expression {
     override def toString(): String = prettyExpression(this)
+    // def toLocallyNameless = locallyNameless(this)
+    def toSumPrefix = sumPrefix(this)
+    def substituted(substs: (Variable, Variable)*) = substitute(this, substs.toMap)
   }
 
   // semiring operators
@@ -24,6 +27,9 @@ object USR {
     infix def *(other: Expression) = Mul(Seq(self, other))
   }
 
+  // extension
+  case class Lambda(val variable: Variable, val body: Expression) extends Expression
+
   // atomic expressions
 
   /** Relation reference, such as R[t1]
@@ -41,6 +47,8 @@ object USR {
       extends BinaryComparison(left, right)
   case class LE(override val left: Value, override val right: Value)
       extends BinaryComparison(left, right)
+
+  case class ExpressionVariable(override val name: String) extends Expression with Label(name)
 
   sealed trait Value
 
@@ -84,6 +92,8 @@ object USR {
       case EQ(left, right)   => s"${prettyValue(left)} = ${prettyValue(right)}"
       case LT(left, right)   => s"${prettyValue(left)} < ${prettyValue(right)}"
       case LE(left, right)   => s"${prettyValue(left)} <= ${prettyValue(right)}"
+      case Lambda(variable, body) => s"λ${variable.name}. ${prettyExpression(body)}"
+      case ExpressionVariable(name) => "$" + name
 
   def prettyValue(v: Value): String =
     v match
@@ -91,6 +101,62 @@ object USR {
       case Constant(value) => value.toString()
       case Left(inner)     => s"${prettyValue(inner)}.left"
       case Right(inner)    => s"${prettyValue(inner)}.right"
+      case Function(label, args) => s"$label(" ++ args.map(prettyValue(_)).reduce(_ ++ ", " ++ _) ++ ")"
+      case Aggregate(label, args) => s"$label(${prettyExpression(args)})"
+
+  def substitute(e: Expression, substs: Map[Variable, Variable]): Expression =
+    e match
+      case Zero => Zero
+      case One => One
+      case Not(inner) => Not(substitute(inner, substs))
+      case Add(es) => Add(es.map(substitute(_, substs)))
+      case Mul(es) => Mul(es.map(substitute(_, substs)))
+      case USum(v, e) => USum(v, substitute(e, substs - v))
+      case Squash(inner) => Squash(substitute(inner, substs))
+      case RelationRef(r, v) => RelationRef(r, substitute(v, substs).asInstanceOf[Variable])
+      case EQ(left, right) => EQ(substitute(left, substs), substitute(right, substs))
+      case LT(left, right) => LT(substitute(left, substs), substitute(right, substs))
+      case LE(left, right) => LE(substitute(left, substs), substitute(right, substs))
+      case Lambda(variable, body) => Lambda(variable, substitute(body, substs - variable)) // capture avoiding substitution
+      case ExpressionVariable(name) => e
+
+  def substitute(v: Value, substs: Map[Variable, Variable]): Value =
+    v match
+      case va @ Variable(name) => substs.getOrElse(va, va)
+      case Constant(value) => v
+      case Function(label, args) => Function(label, args.map(substitute(_, substs)))
+      case Aggregate(label, arg) => Aggregate(label, substitute(arg, substs))
+      case Left(inner) => Left(substitute(inner, substs))
+      case Right(inner) => Right(substitute(inner, substs))
+
+  def sumPrefix(e: Expression): Expression = ???
+    // e match
+    //   case Zero => Zero
+    //   case One => One
+    //   case Not(inner) => 
+    //     sumPrefix(inner) match
+    //       case Zero => One
+    //       case One => Zero
+    //       case Not(inner) => inner
+    //       case Add(es) => sumPrefix(Mul(es.map(sumPrefix())))
+    //       case Mul(es) =>
+    //       case USum(v, e) =>
+    //       case Squash(inner) =>
+    //       case RelationRef(r, v) =>
+    //       case EQ(left, right) =>
+    //       case LT(left, right) =>
+    //       case LE(left, right) =>
+        
+    //   case Add(es) =>
+    //   case Mul(es) =>
+    //   case USum(v, e) =>
+    //   case Squash(inner) =>
+    //   case RelationRef(r, v) =>
+    //   case EQ(left, right) =>
+    //   case LT(left, right) =>
+    //   case LE(left, right) =>
+    
+
 }
 
 // object USR2 {

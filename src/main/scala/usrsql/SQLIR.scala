@@ -15,7 +15,7 @@ object SQLIR {
   sealed trait Query {
     override def toString(): String = prettyQuery(this)
   }
-  case class SELECT(val selection: Projection, val from: Query)
+  case class SELECT(val selection: Projection, val from: FROM)
       extends Query
       with SelectStatement
   case class FROM(val clauses: Seq[(Query, QueryLabel)]) extends Query

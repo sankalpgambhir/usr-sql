@@ -1,5 +1,36 @@
 package usrsql
 
+import scala.collection.mutable
+
+class MutableUnionFind[A]:
+  val parent = mutable.HashMap.empty[A, A]
+  val rank = mutable.HashMap.empty[A, Int]
+  val generator: A => Int = x => 1
+
+  def addElem(e: A) =
+    if !parent.contains(e) then
+      parent += e -> e
+      rank += e -> generator(e)
+
+  infix def +=(e: A) = addElem(e)
+
+  def find_(e: A): A =
+    if parent(e) == e then e
+    else find_(parent(e))
+
+  def find(e: A): Option[A] =
+    if parent.contains(e) then Some(find_(e))
+    else None
+  
+  def apply(e: A) = find(e)
+
+  def union(e1: A, e2: A) =
+    addElem(e1); addElem(e2)
+    if rank(e1) >= rank(e2) then
+      parent += e2 -> e1
+    else
+      parent += e1 -> e2
+
 class UnionFind[A](
     val parent: Map[A, A],
     val rank: Map[A, Int],
