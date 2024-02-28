@@ -1,76 +1,80 @@
 package usrsql.language
 
-import usrsql.Schema.DataType
+import RelType.*
 
-object SQL:
+object SQL: 
 
-  sealed trait Query:
-    override def toString(): String = 
-      this match
-        case SELECT(columns, from, where, distinct) =>
-          val distinctStr = if distinct then "DISTINCT " else ""
-          val columnsStr = columns.map(_.toString()).mkString(", ")
-          val fromStr = from.map(_.toString()).mkString(", ")
-          val whereStr = where.toString()
-          s"SELECT $distinctStr$columnsStr FROM $fromStr WHERE $whereStr"
-        case UNIONALL(left, right) =>
-          s"(${left.toString()}) UNION ALL (${right.toString()})"
-        case EXCEPT(left, right) =>
-          s"(${left.toString()}) EXCEPT (${right.toString()})"
+  sealed trait Relational extends Typed
+  sealed trait Query extends Relational
+  case class LabelledRelational(label: Label, relational: Relational) extends Relational:
+    require(label.tpe == relational.tpe)
+    def tpe = relational.tpe
+  
+  case class Select(
+    selectors: Seq[Selector],
+    from: Seq[LabelledRelational],
+    where: Predicate
+  ) extends Query:
+    def tpe = 
+      selectors.map(_.tpe).reduceLeft(Node(_, _))
 
-  case class SELECT(
-    val columns: Seq[Value],
-    val from: Seq[TableRef],
-    val where: Predicate,
-    val distinct: Boolean
-  ) extends Query
+  case class Union(
+    left: Query,
+    right: Query
+  ) extends Query:
+    require(left.tpe == right.tpe)
+    def tpe = left.tpe
 
-  case class UNIONALL(left: Query, right: Query) extends Query
-  case class EXCEPT(left: Query, right: Query) extends Query
+  case class Join(
+    left: Query,
+    right: Query,
+    on: Predicate
+  ) extends Query:
+    def tpe = Node(left.tpe, right.tpe)
 
-  sealed trait TableRef
-  case class TableAlias(source: Table, name: String) extends TableRef:
-    override def toString(): String = s"$source AS $name"
-  case class QueryAlias(source: Query, name: String) extends TableRef:
-    override def toString(): String = s"($source) AS $name"
+  case class Distinct(inner: Query) extends Query:
+    def tpe = inner.tpe
 
-  case class Table(name: String):
-    override def toString(): String = name
-  case class Column(name: String):
-    override def toString(): String = name
+  sealed trait Selector extends Typed
+  sealed trait Projection extends Selector
+  case class LeftProjection(inner: Projection) extends Projection:
+    def tpe = 
+      inner.tpe match
+        case Node(l, _) => l
+        case _ => throw InvalidTypeException
+  case class RightProjection(inner: Projection) extends Projection:
+    def tpe = 
+      inner.tpe match
+        case Node(_, r) => r
+        case _ => throw InvalidTypeException
+  case class TableProjection(table: Table) extends Projection:
+    def tpe = table.tpe
+
+  case class ConstantSelector(value: Constant) extends Selector:
+    def tpe = value.tpe
+  case class FunctionalSelector(fun: Functional, args: Seq[Selector]) extends Selector:
+    require(fun.itpe == args.map(_.tpe))
+    def tpe = 
+      fun.otpe
+
+  sealed trait Table extends Relational
+  case class TableReference(name: String, tpe: RelType) extends Table
+
+  sealed trait Constant extends Typed
+  case class BoxedConstant(value: Any, constType: BaseType) extends Constant:
+    def tpe = Leaf(constType)
+
+  case class Label(name: String, tpe: RelType) extends Typed
+
+  case class Functional(name: String, itpe: Seq[RelType], otpe: RelType)
 
   sealed trait Predicate
-
-  case object TRUE extends Predicate
-  case object FALSE extends Predicate
-
-  sealed trait UnaryConnector extends Predicate:
-    val inner: Predicate
-  
-  case class NOT(inner: Predicate) extends UnaryConnector
-
-  case class EXISTS(inner: Query) extends Predicate
-
-  sealed trait BinaryConnector extends Predicate:
-    val left: Predicate
-    val right: Predicate
-
-  case class AND(left: Predicate, right: Predicate) extends BinaryConnector  
-  case class OR(left: Predicate, right: Predicate) extends BinaryConnector  
-
-  sealed trait BinaryPredicate extends Predicate:
-    val left: Value
-    val right: Value
-
-  case class EQ(left: Value, right: Value) extends BinaryPredicate
-  case class LT(left: Value, right: Value) extends BinaryPredicate
-  case class LE(left: Value, right: Value) extends BinaryPredicate
-
-  sealed trait Value
-
-  case class ColumnRef(table: Table, column: Column) extends Value:
-    override def toString(): String = s"$table.$column"
-  case class Constant(data: DataType) extends Value
+  case class And(left: Predicate, right: Predicate) extends Predicate
+  case class Or(left: Predicate, right: Predicate) extends Predicate
+  case class Not(inner: Predicate) extends Predicate
+  case class Eq(left: Selector, right: Selector) extends Predicate
+  case class Gt(left: Selector, right: Selector) extends Predicate
+  case class Lt(left: Selector, right: Selector) extends Predicate
+  case class Uninterpreted(name: String, args: Seq[Selector]) extends Predicate
 
 end SQL
-
